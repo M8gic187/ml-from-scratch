@@ -5,15 +5,17 @@ No scikit-learn, no PyTorch — just math and code.
 
 ## Algorithms
 
-| Category        | Algorithm              | Status |
-|-----------------|------------------------|--------|
-| Linear Models   | Linear Regression      | ✅     |
-| Linear Models   | Logistic Regression    | ✅     |
-| Clustering      | K-Means                | ✅     |
-| Neighbors       | K-Nearest Neighbors    | ✅     |
-| Tree            | Decision Tree (CART)   | ✅     |
-| Naive Bayes     | Gaussian Naive Bayes   | ✅     |
-| Ensemble        | Random Forest          | ✅     |
+| Category           | Algorithm              | Status |
+|--------------------|------------------------|--------|
+| Linear Models      | Linear Regression      | ✅     |
+| Linear Models      | Logistic Regression    | ✅     |
+| Clustering         | K-Means                | ✅     |
+| Neighbors          | K-Nearest Neighbors    | ✅     |
+| Tree               | Decision Tree (CART)   | ✅     |
+| Naive Bayes        | Gaussian Naive Bayes   | ✅     |
+| Ensemble           | Random Forest          | ✅     |
+| Ensemble           | AdaBoost               | ✅     |
+| Decomposition      | PCA                    | ✅     |
 
 ## Structure
 
@@ -25,7 +27,8 @@ ml_scratch/
 ├── neighbors/      # Instance-based learning (KNN)
 ├── tree/           # Tree-based models (CART)
 ├── naive_bayes/    # Gaussian Naive Bayes classifier
-└── ensemble/       # Random Forest (bootstrap-aggregated decision trees)
+├── ensemble/       # Random Forest, AdaBoost
+└── decomposition/  # PCA dimensionality reduction
 ```
 
 ## Quick Start
@@ -36,7 +39,8 @@ from ml_scratch.clustering import KMeans
 from ml_scratch.neighbors import KNNClassifier, KNNRegressor
 from ml_scratch.tree import DecisionTreeClassifier
 from ml_scratch.naive_bayes import GaussianNB
-from ml_scratch.ensemble import RandomForestClassifier
+from ml_scratch.ensemble import RandomForestClassifier, AdaBoostClassifier
+from ml_scratch.decomposition import PCA
 from ml_scratch.utils.metrics import r2_score, accuracy
 ```
 
@@ -91,6 +95,30 @@ print(f"Accuracy: {accuracy(y_test, rf.predict(X_test)):.4f}")
 
 # Soft vote probabilities (averaged across trees)
 proba = rf.predict_proba(X_test)    # shape (n_samples, n_classes)
+```
+
+### AdaBoost
+
+```python
+# 50 boosting rounds, binary classification only
+clf = AdaBoostClassifier(n_estimators=50, learning_rate=1.0)
+clf.fit(X_train, y_train)
+print(f"Accuracy: {accuracy(y_test, clf.predict(X_test)):.4f}")
+
+# Raw boosted scores (positive → class 1)
+scores = clf.decision_function(X_test)  # shape (n_samples,)
+```
+
+### PCA
+
+```python
+# Reduce to 2 dimensions
+pca = PCA(n_components=2)
+X_reduced = pca.fit_transform(X_train)   # shape (n_samples, 2)
+X_back    = pca.inverse_transform(X_reduced)  # approximate reconstruction
+
+print("Explained variance:", pca.explained_variance_ratio_.round(3))
+print(f"Cumulative: {pca.explained_variance_ratio_.sum():.4f}")
 ```
 
 ## Running Tests
