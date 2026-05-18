@@ -109,21 +109,20 @@ class DBSCAN:
         is_core: np.ndarray,
     ) -> None:
         """BFS expansion: assign *cluster_id* to all density-reachable points."""
-        queue = list(neighbours[seed])
         labels[seed] = cluster_id
+        queue = list(neighbours[seed])
+        in_queue: set = set(queue)
 
         while queue:
             point = queue.pop()
-            if labels[point] == self.NOISE:
-                # Border point absorbed into this cluster
-                labels[point] = cluster_id
             if labels[point] != self.NOISE:
-                continue
+                continue  # already assigned (seed itself or duplicate entry)
             labels[point] = cluster_id
             if is_core[point]:
                 for nb in neighbours[point]:
-                    if labels[nb] == self.NOISE:
+                    if labels[nb] == self.NOISE and nb not in in_queue:
                         queue.append(nb)
+                        in_queue.add(nb)
 
     def _pairwise_distances(self, X: np.ndarray) -> np.ndarray:
         """Return the full (n, n) pairwise distance matrix."""
