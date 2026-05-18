@@ -10,6 +10,7 @@ No scikit-learn, no PyTorch — just math and code.
 | Linear Models      | Linear Regression      | ✅     |
 | Linear Models      | Logistic Regression    | ✅     |
 | Clustering         | K-Means                | ✅     |
+| Clustering         | DBSCAN                 | ✅     |
 | Neighbors          | K-Nearest Neighbors    | ✅     |
 | Tree               | Decision Tree (CART)   | ✅     |
 | Naive Bayes        | Gaussian Naive Bayes   | ✅     |
@@ -36,14 +37,14 @@ ml_scratch/
 
 ```python
 from ml_scratch.linear_models import LinearRegression, LogisticRegression
-from ml_scratch.clustering import KMeans
+from ml_scratch.clustering import KMeans, DBSCAN
 from ml_scratch.neighbors import KNNClassifier, KNNRegressor
 from ml_scratch.tree import DecisionTreeClassifier
 from ml_scratch.naive_bayes import GaussianNB
 from ml_scratch.ensemble import RandomForestClassifier, AdaBoostClassifier
 from ml_scratch.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
 from ml_scratch.decomposition import PCA
-from ml_scratch.utils.metrics import r2_score, accuracy
+from ml_scratch.utils.metrics import r2_score, accuracy, silhouette_score
 ```
 
 ### Linear Regression
@@ -52,6 +53,26 @@ from ml_scratch.utils.metrics import r2_score, accuracy
 model = LinearRegression(learning_rate=0.01, n_iterations=1000)
 model.fit(X_train, y_train)
 print(f"R²: {r2_score(y_test, model.predict(X_test)):.4f}")
+```
+
+### DBSCAN
+
+```python
+# Density-based clustering — no need to specify k, finds arbitrarily shaped clusters
+db = DBSCAN(eps=0.5, min_samples=5)
+labels = db.fit_predict(X)           # noise points receive label -1
+
+print(f"Clusters found  : {db.n_clusters_}")
+print(f"Noise points    : {(labels == -1).sum()}")
+print(f"Core points     : {len(db.core_sample_indices_)}")
+
+# Evaluate cluster quality (noise excluded automatically)
+score = silhouette_score(X, labels)
+print(f"Silhouette score: {score:.4f}")
+
+# Manhattan distance variant
+db_l1 = DBSCAN(eps=0.8, min_samples=5, metric="manhattan")
+db_l1.fit(X)
 ```
 
 ### K-Nearest Neighbors
