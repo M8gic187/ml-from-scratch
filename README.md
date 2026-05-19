@@ -9,6 +9,8 @@ No scikit-learn, no PyTorch — just math and code.
 |--------------------|------------------------|--------|
 | Linear Models      | Linear Regression      | ✅     |
 | Linear Models      | Logistic Regression    | ✅     |
+| SVM                | LinearSVC (Pegasos)    | ✅     |
+| SVM                | SVC (kernel SMO)       | ✅     |
 | Clustering         | K-Means                | ✅     |
 | Clustering         | DBSCAN                 | ✅     |
 | Neighbors          | K-Nearest Neighbors    | ✅     |
@@ -23,8 +25,9 @@ No scikit-learn, no PyTorch — just math and code.
 
 ```
 ml_scratch/
-├── utils/          # Metrics and evaluation helpers
+├── utils/          # Metrics, cross-validation, and evaluation helpers
 ├── linear_models/  # Gradient-descent regression & classification
+├── svm/            # LinearSVC (Pegasos) and SVC (kernel SMO)
 ├── clustering/     # Unsupervised learning
 ├── neighbors/      # Instance-based learning (KNN)
 ├── tree/           # Tree-based models (CART)
@@ -37,6 +40,7 @@ ml_scratch/
 
 ```python
 from ml_scratch.linear_models import LinearRegression, LogisticRegression
+from ml_scratch.svm import LinearSVC, SVC
 from ml_scratch.clustering import KMeans, DBSCAN
 from ml_scratch.neighbors import KNNClassifier, KNNRegressor
 from ml_scratch.tree import DecisionTreeClassifier
@@ -44,7 +48,10 @@ from ml_scratch.naive_bayes import GaussianNB
 from ml_scratch.ensemble import RandomForestClassifier, AdaBoostClassifier
 from ml_scratch.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
 from ml_scratch.decomposition import PCA
-from ml_scratch.utils.metrics import r2_score, accuracy, silhouette_score
+from ml_scratch.utils import (
+    accuracy, r2_score, confusion_matrix, classification_report, log_loss,
+    KFold, StratifiedKFold, cross_val_score,
+)
 ```
 
 ### Linear Regression
@@ -53,6 +60,57 @@ from ml_scratch.utils.metrics import r2_score, accuracy, silhouette_score
 model = LinearRegression(learning_rate=0.01, n_iterations=1000)
 model.fit(X_train, y_train)
 print(f"R²: {r2_score(y_test, model.predict(X_test)):.4f}")
+```
+
+### Support Vector Machine
+
+```python
+# LinearSVC — Pegasos primal sub-gradient (fast, works great on large datasets)
+clf = LinearSVC(C=1.0, n_iterations=3000)
+clf.fit(X_train, y_train)
+print(f"Accuracy: {accuracy(y_test, clf.predict(X_test)):.4f}")
+scores = clf.decision_function(X_test)  # signed margin distance
+
+# SVC — kernel SVM via simplified SMO in the dual
+# linear kernel
+svc = SVC(kernel="linear", C=1.0)
+svc.fit(X_train, y_train)
+
+# RBF kernel (handles non-linearly separable data)
+svc = SVC(kernel="rbf", C=5.0, gamma="scale", n_iterations=100)
+svc.fit(X_train, y_train)
+print(f"Accuracy         : {accuracy(y_test, svc.predict(X_test)):.4f}")
+print(f"Support vectors  : {len(svc.support_vectors_)}")
+
+# Polynomial kernel
+svc = SVC(kernel="poly", degree=3, C=1.0, gamma="scale")
+svc.fit(X_train, y_train)
+```
+
+### Cross-Validation
+
+```python
+from ml_scratch.utils import KFold, StratifiedKFold, cross_val_score
+
+# K-Fold (plain split)
+kf = KFold(n_splits=5, shuffle=True, random_state=42)
+for train_idx, val_idx in kf.split(X):
+    ...
+
+# Stratified K-Fold (preserves class ratio per fold)
+skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+scores = cross_val_score(SVC(kernel="rbf"), X, y, cv=skf)
+print(f"CV accuracy: {scores.mean():.4f} ± {scores.std():.4f}")
+```
+
+### Extended Metrics
+
+```python
+from ml_scratch.utils import confusion_matrix, classification_report, log_loss
+
+cm = confusion_matrix(y_test, y_pred)   # integer matrix, rows=true, cols=pred
+print(classification_report(y_test, y_pred))
+loss = log_loss(y_test, y_prob)         # binary cross-entropy
 ```
 
 ### DBSCAN
