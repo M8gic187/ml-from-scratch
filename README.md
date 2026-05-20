@@ -20,20 +20,23 @@ No scikit-learn, no PyTorch — just math and code.
 | Ensemble           | AdaBoost               | ✅     |
 | Ensemble           | Gradient Boosting      | ✅     |
 | Decomposition      | PCA                    | ✅     |
+| Neural Network     | MLP Classifier         | ✅     |
+| Neural Network     | MLP Regressor          | ✅     |
 
 ## Structure
 
 ```
 ml_scratch/
-├── utils/          # Metrics, cross-validation, and evaluation helpers
-├── linear_models/  # Gradient-descent regression & classification
-├── svm/            # LinearSVC (Pegasos) and SVC (kernel SMO)
-├── clustering/     # Unsupervised learning
-├── neighbors/      # Instance-based learning (KNN)
-├── tree/           # Tree-based models (CART)
-├── naive_bayes/    # Gaussian Naive Bayes classifier
-├── ensemble/       # Random Forest, AdaBoost, Gradient Boosting
-└── decomposition/  # PCA dimensionality reduction
+├── utils/           # Metrics, cross-validation, and evaluation helpers
+├── linear_models/   # Gradient-descent regression & classification
+├── svm/             # LinearSVC (Pegasos) and SVC (kernel SMO)
+├── clustering/      # Unsupervised learning
+├── neighbors/       # Instance-based learning (KNN)
+├── tree/            # Tree-based models (CART)
+├── naive_bayes/     # Gaussian Naive Bayes classifier
+├── ensemble/        # Random Forest, AdaBoost, Gradient Boosting
+├── decomposition/   # PCA dimensionality reduction
+└── neural_network/  # MLP (Multilayer Perceptron) classifier and regressor
 ```
 
 ## Quick Start
@@ -48,6 +51,7 @@ from ml_scratch.naive_bayes import GaussianNB
 from ml_scratch.ensemble import RandomForestClassifier, AdaBoostClassifier
 from ml_scratch.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
 from ml_scratch.decomposition import PCA
+from ml_scratch.neural_network import MLPClassifier, MLPRegressor
 from ml_scratch.utils import (
     accuracy, r2_score, confusion_matrix, classification_report, log_loss,
     KFold, StratifiedKFold, cross_val_score,
@@ -220,6 +224,42 @@ X_back    = pca.inverse_transform(X_reduced)  # approximate reconstruction
 
 print("Explained variance:", pca.explained_variance_ratio_.round(3))
 print(f"Cumulative: {pca.explained_variance_ratio_.sum():.4f}")
+```
+
+### MLP Neural Network
+
+```python
+from ml_scratch.neural_network import MLPClassifier, MLPRegressor
+
+# --- Classification (multi-class, softmax + cross-entropy) ---
+clf = MLPClassifier(
+    hidden_layer_sizes=(128, 64),   # two hidden layers
+    activation="relu",
+    learning_rate=1e-3,
+    n_iterations=300,
+    batch_size=32,
+    random_state=42,
+)
+clf.fit(X_train, y_train)
+print(f"Accuracy : {accuracy(y_test, clf.predict(X_test)):.4f}")
+
+# Per-class probabilities (shape: n_samples × n_classes)
+proba = clf.predict_proba(X_test)
+
+# Training curve
+print(f"Final loss: {clf.loss_history_[-1]:.4f}")
+
+# --- Regression (linear output, MSE loss) ---
+reg = MLPRegressor(
+    hidden_layer_sizes=(64, 32),
+    activation="tanh",
+    learning_rate=5e-4,
+    n_iterations=500,
+    batch_size=64,
+    random_state=0,
+)
+reg.fit(X_train, y_train)
+print(f"R²: {r2_score(y_test, reg.predict(X_test)):.4f}")
 ```
 
 ## Running Tests
