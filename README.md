@@ -9,6 +9,9 @@ No scikit-learn, no PyTorch — just math and code.
 |--------------------|------------------------|--------|
 | Linear Models      | Linear Regression      | ✅     |
 | Linear Models      | Logistic Regression    | ✅     |
+| Linear Models      | Ridge Regression       | ✅     |
+| Linear Models      | Lasso Regression       | ✅     |
+| Linear Models      | ElasticNet             | ✅     |
 | SVM                | LinearSVC (Pegasos)    | ✅     |
 | SVM                | SVC (kernel SMO)       | ✅     |
 | Clustering         | K-Means                | ✅     |
@@ -43,6 +46,7 @@ ml_scratch/
 
 ```python
 from ml_scratch.linear_models import LinearRegression, LogisticRegression
+from ml_scratch.linear_models import Ridge, Lasso, ElasticNet
 from ml_scratch.svm import LinearSVC, SVC
 from ml_scratch.clustering import KMeans, DBSCAN
 from ml_scratch.neighbors import KNNClassifier, KNNRegressor
@@ -64,6 +68,30 @@ from ml_scratch.utils import (
 model = LinearRegression(learning_rate=0.01, n_iterations=1000)
 model.fit(X_train, y_train)
 print(f"R²: {r2_score(y_test, model.predict(X_test)):.4f}")
+```
+
+### Regularised Linear Models
+
+```python
+# Ridge — L2 penalty (gradient descent); shrinks all weights but keeps them non-zero
+ridge = Ridge(alpha=1.0, learning_rate=0.01, n_iterations=1000)
+ridge.fit(X_train, y_train)
+print(f"R²: {r2_score(y_test, ridge.predict(X_test)):.4f}")
+print(f"||w||: {np.linalg.norm(ridge.weights_):.4f}")
+
+# Lasso — L1 penalty (coordinate descent); drives irrelevant weights to exactly zero
+lasso = Lasso(alpha=0.1, n_iterations=1000)
+lasso.fit(X_train, y_train)
+n_zeros = (np.abs(lasso.weights_) < 1e-6).sum()
+print(f"R²: {r2_score(y_test, lasso.predict(X_test)):.4f}")
+print(f"Sparse weights (zero / total): {n_zeros} / {len(lasso.weights_)}")
+
+# ElasticNet — blended L1+L2 (coordinate descent); best for correlated features
+# l1_ratio=1.0 → pure Lasso, l1_ratio=0.0 → pure Ridge
+en = ElasticNet(alpha=0.1, l1_ratio=0.5, n_iterations=1000)
+en.fit(X_train, y_train)
+print(f"R²: {r2_score(y_test, en.predict(X_test)):.4f}")
+print(f"Converged in {en.n_iter_} iterations")
 ```
 
 ### Support Vector Machine
