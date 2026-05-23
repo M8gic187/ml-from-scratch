@@ -23,6 +23,7 @@ No scikit-learn, no PyTorch — just math and code.
 | Ensemble           | AdaBoost               | ✅     |
 | Ensemble           | Gradient Boosting      | ✅     |
 | Decomposition      | PCA                    | ✅     |
+| Decomposition      | LDA                    | ✅     |
 | Neural Network     | MLP Classifier         | ✅     |
 | Neural Network     | MLP Regressor          | ✅     |
 
@@ -38,7 +39,7 @@ ml_scratch/
 ├── tree/            # Tree-based models (CART)
 ├── naive_bayes/     # Gaussian Naive Bayes classifier
 ├── ensemble/        # Random Forest, AdaBoost, Gradient Boosting
-├── decomposition/   # PCA dimensionality reduction
+├── decomposition/   # PCA and LDA dimensionality reduction
 └── neural_network/  # MLP (Multilayer Perceptron) classifier and regressor
 ```
 
@@ -54,7 +55,7 @@ from ml_scratch.tree import DecisionTreeClassifier
 from ml_scratch.naive_bayes import GaussianNB
 from ml_scratch.ensemble import RandomForestClassifier, AdaBoostClassifier
 from ml_scratch.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
-from ml_scratch.decomposition import PCA
+from ml_scratch.decomposition import PCA, LinearDiscriminantAnalysis
 from ml_scratch.neural_network import MLPClassifier, MLPRegressor
 from ml_scratch.utils import (
     accuracy, r2_score, confusion_matrix, classification_report, log_loss,
@@ -252,6 +253,46 @@ X_back    = pca.inverse_transform(X_reduced)  # approximate reconstruction
 
 print("Explained variance:", pca.explained_variance_ratio_.round(3))
 print(f"Cumulative: {pca.explained_variance_ratio_.sum():.4f}")
+```
+
+### Linear Discriminant Analysis (LDA)
+
+LDA is a supervised dimensionality reduction technique that finds the axes
+maximising between-class separation relative to within-class variance.  It
+also doubles as a Gaussian classifier via nearest-centroid prediction in the
+discriminant subspace.
+
+```python
+from ml_scratch.decomposition import LinearDiscriminantAnalysis
+
+# --- Dimensionality reduction (supervised) ---
+# At most min(n_features, n_classes − 1) components are available
+lda = LinearDiscriminantAnalysis(n_components=2)
+X_reduced = lda.fit_transform(X_train, y_train)   # shape (n_samples, 2)
+
+print("Explained variance:", lda.explained_variance_ratio_.round(3))
+print(f"Cumulative: {lda.explained_variance_ratio_.sum():.4f}")
+
+# Project new data (uses same axes from training)
+X_test_reduced = lda.transform(X_test)
+
+# --- Classification (nearest centroid in discriminant space) ---
+lda_clf = LinearDiscriminantAnalysis(n_components=2)
+lda_clf.fit(X_train, y_train)
+print(f"Accuracy: {accuracy(y_test, lda_clf.predict(X_test)):.4f}")
+
+# Class posterior probabilities (softmax of log-posteriors)
+proba = lda_clf.predict_proba(X_test)   # shape (n_samples, n_classes)
+
+# --- Custom class priors ---
+# Useful for imbalanced datasets or when deployment priors differ from training
+lda_prior = LinearDiscriminantAnalysis(priors=[0.9, 0.1])
+lda_prior.fit(X_train, y_train)
+
+# --- Numerical solver ---
+# 'svd' (default-stable) whitens the data first; 'eigen' solves SW⁻¹ SB directly
+lda_svd = LinearDiscriminantAnalysis(n_components=2, solver='svd')
+lda_svd.fit(X_train, y_train)
 ```
 
 ### MLP Neural Network
