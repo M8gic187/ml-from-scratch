@@ -175,7 +175,10 @@ class MinMaxScaler:
         self.max_ = X.max(axis=0)
         data_range = self.max_ - self.min_
         low, high = self.feature_range
-        self.scale_ = np.where(data_range == 0, 0.0, (high - low) / data_range)
+        # Use safe divisor to avoid divide-by-zero RuntimeWarning from NumPy;
+        # np.where still evaluates both branches eagerly.
+        safe_range = np.where(data_range == 0, 1.0, data_range)
+        self.scale_ = np.where(data_range == 0, 0.0, (high - low) / safe_range)
         return self
 
     def transform(self, X: np.ndarray) -> np.ndarray:
