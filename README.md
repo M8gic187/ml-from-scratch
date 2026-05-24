@@ -26,6 +26,10 @@ No scikit-learn, no PyTorch — just math and code.
 | Decomposition      | LDA                    | ✅     |
 | Neural Network     | MLP Classifier         | ✅     |
 | Neural Network     | MLP Regressor          | ✅     |
+| Preprocessing      | StandardScaler         | ✅     |
+| Preprocessing      | MinMaxScaler           | ✅     |
+| Preprocessing      | LabelEncoder           | ✅     |
+| Preprocessing      | OneHotEncoder          | ✅     |
 
 ## Structure
 
@@ -40,7 +44,8 @@ ml_scratch/
 ├── naive_bayes/     # Gaussian Naive Bayes classifier
 ├── ensemble/        # Random Forest, AdaBoost, Gradient Boosting
 ├── decomposition/   # PCA and LDA dimensionality reduction
-└── neural_network/  # MLP (Multilayer Perceptron) classifier and regressor
+├── neural_network/  # MLP (Multilayer Perceptron) classifier and regressor
+└── preprocessing/   # Feature scalers and categorical encoders
 ```
 
 ## Quick Start
@@ -57,6 +62,9 @@ from ml_scratch.ensemble import RandomForestClassifier, AdaBoostClassifier
 from ml_scratch.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
 from ml_scratch.decomposition import PCA, LinearDiscriminantAnalysis
 from ml_scratch.neural_network import MLPClassifier, MLPRegressor
+from ml_scratch.preprocessing import (
+    StandardScaler, MinMaxScaler, LabelEncoder, OneHotEncoder,
+)
 from ml_scratch.utils import (
     accuracy, r2_score, confusion_matrix, classification_report, log_loss,
     KFold, StratifiedKFold, cross_val_score,
@@ -329,6 +337,85 @@ reg = MLPRegressor(
 )
 reg.fit(X_train, y_train)
 print(f"R²: {r2_score(y_test, reg.predict(X_test)):.4f}")
+```
+
+### Preprocessing
+
+Preprocessing transformers follow the same `fit` / `transform` / `fit_transform` API as all other estimators in this library and compose naturally in manual pipelines.
+
+#### StandardScaler
+
+Standardises each feature to zero mean and unit variance.  Features with zero variance are left unchanged (scale replaced by 1 to avoid `NaN`).
+
+```python
+from ml_scratch.preprocessing import StandardScaler
+
+ss = StandardScaler()
+X_train_s = ss.fit_transform(X_train)   # learn mean/std and apply
+X_test_s  = ss.transform(X_test)        # apply learned parameters
+X_orig    = ss.inverse_transform(X_train_s)   # undo scaling
+```
+
+#### MinMaxScaler
+
+Scales features into a fixed range (default `[0, 1]`).
+
+```python
+from ml_scratch.preprocessing import MinMaxScaler
+
+# Scale pixel intensities to [-1, 1] for neural-net input
+mms = MinMaxScaler(feature_range=(-1, 1))
+X_scaled = mms.fit_transform(X_train)
+X_orig   = mms.inverse_transform(X_scaled)
+```
+
+#### LabelEncoder
+
+Encodes a 1-D label array as consecutive integers `[0, n_classes − 1]`.
+
+```python
+from ml_scratch.preprocessing import LabelEncoder
+
+le = LabelEncoder()
+y_enc = le.fit_transform(y)               # e.g. ['cat','dog'] → [0, 1]
+print(le.classes_, le.n_classes_)
+y_dec = le.inverse_transform(y_enc)       # back to original labels
+```
+
+#### OneHotEncoder
+
+Expands categorical columns into binary indicator columns.  Pass `drop='first'` (default) to remove the reference category and avoid multicollinearity, or `drop=None` to keep all columns.
+
+```python
+from ml_scratch.preprocessing import OneHotEncoder
+
+# Mixed categorical design matrix
+X_cat = np.array([['male', 'urban'], ['female', 'rural'], ['female', 'urban']])
+
+ohe = OneHotEncoder(drop='first')         # drop reference category
+X_enc = ohe.fit_transform(X_cat)
+print(ohe.get_feature_names_out())        # ['x0_male', 'x1_urban']
+
+ohe_full = OneHotEncoder(drop=None)       # keep all columns
+X_full = ohe_full.fit_transform(X_cat)   # shape (3, 4)
+```
+
+#### Combining scalers and encoders
+
+```python
+import numpy as np
+from ml_scratch.preprocessing import StandardScaler, OneHotEncoder
+
+# Numeric columns
+ss = StandardScaler()
+X_num = ss.fit_transform(X_numeric_train)
+
+# Categorical columns
+ohe = OneHotEncoder(drop='first')
+X_cat = ohe.fit_transform(X_categorical_train)
+
+# Single feature matrix ready for any estimator
+X_ready = np.hstack([X_num, X_cat])
 ```
 
 ## Running Tests
