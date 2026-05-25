@@ -16,6 +16,7 @@ No scikit-learn, no PyTorch — just math and code.
 | SVM                | SVC (kernel SMO)       | ✅     |
 | Clustering         | K-Means                | ✅     |
 | Clustering         | DBSCAN                 | ✅     |
+| Clustering         | Gaussian Mixture (GMM) | ✅     |
 | Neighbors          | K-Nearest Neighbors    | ✅     |
 | Tree               | Decision Tree (CART)   | ✅     |
 | Naive Bayes        | Gaussian Naive Bayes   | ✅     |
@@ -54,7 +55,7 @@ ml_scratch/
 from ml_scratch.linear_models import LinearRegression, LogisticRegression
 from ml_scratch.linear_models import Ridge, Lasso, ElasticNet
 from ml_scratch.svm import LinearSVC, SVC
-from ml_scratch.clustering import KMeans, DBSCAN
+from ml_scratch.clustering import KMeans, DBSCAN, GaussianMixture
 from ml_scratch.neighbors import KNNClassifier, KNNRegressor
 from ml_scratch.tree import DecisionTreeClassifier
 from ml_scratch.naive_bayes import GaussianNB
@@ -172,6 +173,40 @@ print(f"Silhouette score: {score:.4f}")
 # Manhattan distance variant
 db_l1 = DBSCAN(eps=0.8, min_samples=5, metric="manhattan")
 db_l1.fit(X)
+```
+
+### Gaussian Mixture Model (GMM)
+
+```python
+# Soft clustering via Expectation-Maximisation over Gaussian components
+gmm = GaussianMixture(n_components=3, covariance_type="full", random_state=42)
+gmm.fit(X)
+
+# Hard cluster labels (most likely component)
+labels = gmm.predict(X)
+
+# Soft posterior probabilities — rows sum to 1
+proba = gmm.predict_proba(X)   # shape (n_samples, n_components)
+
+# Model quality
+print(f"Converged       : {gmm.converged_} ({gmm.n_iter_} iterations)")
+print(f"Log-likelihood  : {gmm.score(X):.4f}")
+print(f"AIC             : {gmm.aic(X):.2f}")
+print(f"BIC             : {gmm.bic(X):.2f}")
+print(f"Mixture weights : {gmm.weights_.round(3)}")
+
+# Model selection: pick k that minimises BIC
+bics = [GaussianMixture(n_components=k, random_state=0).fit(X).bic(X) for k in range(1, 8)]
+best_k = int(np.argmin(bics)) + 1
+print(f"BIC-optimal k   : {best_k}")
+
+# Diagonal covariance (faster, assumes feature independence)
+gmm_diag = GaussianMixture(n_components=3, covariance_type="diag")
+gmm_diag.fit(X)
+
+# Spherical covariance (single variance per component)
+gmm_sph = GaussianMixture(n_components=3, covariance_type="spherical")
+gmm_sph.fit(X)
 ```
 
 ### K-Nearest Neighbors
