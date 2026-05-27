@@ -17,6 +17,7 @@ No scikit-learn, no PyTorch — just math and code.
 | Clustering         | K-Means                | ✅     |
 | Clustering         | DBSCAN                 | ✅     |
 | Clustering         | Gaussian Mixture (GMM) | ✅     |
+| Clustering         | Agglomerative          | ✅     |
 | Neighbors          | K-Nearest Neighbors    | ✅     |
 | Tree               | Decision Tree (CART)   | ✅     |
 | Naive Bayes        | Gaussian Naive Bayes   | ✅     |
@@ -55,7 +56,7 @@ ml_scratch/
 from ml_scratch.linear_models import LinearRegression, LogisticRegression
 from ml_scratch.linear_models import Ridge, Lasso, ElasticNet
 from ml_scratch.svm import LinearSVC, SVC
-from ml_scratch.clustering import KMeans, DBSCAN, GaussianMixture
+from ml_scratch.clustering import KMeans, DBSCAN, GaussianMixture, AgglomerativeClustering
 from ml_scratch.neighbors import KNNClassifier, KNNRegressor
 from ml_scratch.tree import DecisionTreeClassifier
 from ml_scratch.naive_bayes import GaussianNB
@@ -207,6 +208,30 @@ gmm_diag.fit(X)
 # Spherical covariance (single variance per component)
 gmm_sph = GaussianMixture(n_components=3, covariance_type="spherical")
 gmm_sph.fit(X)
+```
+
+### Agglomerative Clustering
+
+```python
+# Ward linkage (default) — minimises within-cluster variance, tends to produce
+# equally-sized, spherical clusters; requires Euclidean distance
+agg = AgglomerativeClustering(n_clusters=3, linkage="ward")
+labels = agg.fit_predict(X)
+print(f"Cluster sizes: {[int((labels == l).sum()) for l in range(3)]}")
+
+# Compare linkage strategies on the same data
+for linkage in ("single", "complete", "average", "ward"):
+    model = AgglomerativeClustering(n_clusters=3, linkage=linkage)
+    model.fit(X)
+    sil = silhouette_score(X, model.labels_)
+    print(f"  {linkage:<10}: silhouette={sil:.4f}")
+
+# Manhattan metric (available for single / complete / average)
+agg_l1 = AgglomerativeClustering(n_clusters=2, linkage="complete", metric="manhattan")
+agg_l1.fit(X)
+
+# Merge to a single cluster (returns all zeros)
+agg_1 = AgglomerativeClustering(n_clusters=1).fit_predict(X)
 ```
 
 ### K-Nearest Neighbors
