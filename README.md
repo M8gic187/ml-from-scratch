@@ -24,6 +24,7 @@ No scikit-learn, no PyTorch — just math and code.
 | Ensemble           | Random Forest          | ✅     |
 | Ensemble           | AdaBoost               | ✅     |
 | Ensemble           | Gradient Boosting      | ✅     |
+| Ensemble           | Isolation Forest       | ✅     |
 | Decomposition      | PCA                    | ✅     |
 | Decomposition      | LDA                    | ✅     |
 | Neural Network     | MLP Classifier         | ✅     |
@@ -44,7 +45,7 @@ ml_scratch/
 ├── neighbors/       # Instance-based learning (KNN)
 ├── tree/            # Tree-based models (CART)
 ├── naive_bayes/     # Gaussian Naive Bayes classifier
-├── ensemble/        # Random Forest, AdaBoost, Gradient Boosting
+├── ensemble/        # Random Forest, AdaBoost, Gradient Boosting, Isolation Forest
 ├── decomposition/   # PCA and LDA dimensionality reduction
 ├── neural_network/  # MLP (Multilayer Perceptron) classifier and regressor
 └── preprocessing/   # Feature scalers and categorical encoders
@@ -62,6 +63,7 @@ from ml_scratch.tree import DecisionTreeClassifier
 from ml_scratch.naive_bayes import GaussianNB
 from ml_scratch.ensemble import RandomForestClassifier, AdaBoostClassifier
 from ml_scratch.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
+from ml_scratch.ensemble import IsolationForest
 from ml_scratch.decomposition import PCA, LinearDiscriminantAnalysis
 from ml_scratch.neural_network import MLPClassifier, MLPRegressor
 from ml_scratch.preprocessing import (
@@ -309,6 +311,36 @@ scores = clf.decision_function(X_test)   # shape (n_samples,)
 reg = GradientBoostingRegressor(n_estimators=150, learning_rate=0.05, loss="mse")
 reg.fit(X_train, y_train)
 print(f"R²: {r2_score(y_test, reg.predict(X_test)):.4f}")
+```
+
+### Isolation Forest
+
+Isolation Forest is an efficient, tree-based anomaly detector.  Instead of
+modelling normality, it explicitly isolates outliers by randomly partitioning
+the feature space.  Anomalous points (in sparse regions) are separated near
+the root of each tree and therefore have shorter average path lengths.
+
+```python
+from ml_scratch.ensemble import IsolationForest
+
+# Basic usage: fit on unlabelled data, predict inlier (+1) / outlier (-1)
+iso = IsolationForest(
+    n_estimators=100,      # number of isolation trees
+    max_samples="auto",    # subsample size per tree (default: min(256, n_samples))
+    contamination=0.05,    # expected fraction of outliers → sets decision threshold
+    random_state=42,
+)
+iso.fit(X_train)
+labels = iso.predict(X_test)          # +1 inlier, -1 outlier
+
+# Raw anomaly scores — more negative = more anomalous
+scores = iso.score_samples(X_test)    # shape (n_samples,)
+
+# Offset-corrected signed distance; positive → inlier, negative → outlier
+decisions = iso.decision_function(X_test)
+
+# Rank the 10 most anomalous samples
+top_outliers = X_test[np.argsort(scores)[:10]]
 ```
 
 ### PCA
