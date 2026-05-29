@@ -18,6 +18,7 @@ No scikit-learn, no PyTorch — just math and code.
 | Clustering         | DBSCAN                 | ✅     |
 | Clustering         | Gaussian Mixture (GMM) | ✅     |
 | Clustering         | Agglomerative          | ✅     |
+| Clustering         | Spectral Clustering    | ✅     |
 | Neighbors          | K-Nearest Neighbors    | ✅     |
 | Tree               | Decision Tree (CART)   | ✅     |
 | Naive Bayes        | Gaussian Naive Bayes   | ✅     |
@@ -57,7 +58,7 @@ ml_scratch/
 from ml_scratch.linear_models import LinearRegression, LogisticRegression
 from ml_scratch.linear_models import Ridge, Lasso, ElasticNet
 from ml_scratch.svm import LinearSVC, SVC
-from ml_scratch.clustering import KMeans, DBSCAN, GaussianMixture, AgglomerativeClustering
+from ml_scratch.clustering import KMeans, DBSCAN, GaussianMixture, AgglomerativeClustering, SpectralClustering
 from ml_scratch.neighbors import KNNClassifier, KNNRegressor
 from ml_scratch.tree import DecisionTreeClassifier
 from ml_scratch.naive_bayes import GaussianNB
@@ -235,6 +236,32 @@ agg_l1.fit(X)
 # Merge to a single cluster (returns all zeros)
 agg_1 = AgglomerativeClustering(n_clusters=1).fit_predict(X)
 ```
+
+### Spectral Clustering
+
+```python
+from ml_scratch.clustering import SpectralClustering
+
+# RBF affinity — works well for compact, well-separated blobs
+sc = SpectralClustering(n_clusters=3, affinity="rbf", gamma=2.0, random_state=0)
+labels = sc.fit_predict(X)
+
+# k-NN affinity — handles non-convex shapes (rings, crescents)
+sc_knn = SpectralClustering(
+    n_clusters=2, affinity="nearest_neighbors", n_neighbors=10, random_state=0
+)
+labels_knn = sc_knn.fit_predict(X)
+
+# Inspect spectral embedding and affinity matrix
+print(sc.embedding_.shape)          # (n_samples, n_clusters)
+print(sc.affinity_matrix_.shape)    # (n_samples, n_samples)
+```
+
+**When to use Spectral Clustering:**
+- Data has non-convex cluster shapes that K-Means cannot separate.
+- Use `affinity="nearest_neighbors"` for concentric rings or interlocking crescents.
+- Use `affinity="rbf"` for smooth, blob-like clusters; tune `gamma` to control the
+  affinity bandwidth (smaller = more local, larger = more global).
 
 ### K-Nearest Neighbors
 
