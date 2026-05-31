@@ -23,6 +23,7 @@ No scikit-learn, no PyTorch — just math and code.
 | Tree               | Decision Tree (CART)   | ✅     |
 | Naive Bayes        | Gaussian Naive Bayes   | ✅     |
 | Ensemble           | Random Forest          | ✅     |
+| Ensemble           | Extra Trees            | ✅     |
 | Ensemble           | AdaBoost               | ✅     |
 | Ensemble           | Gradient Boosting      | ✅     |
 | Ensemble           | Isolation Forest       | ✅     |
@@ -46,7 +47,7 @@ ml_scratch/
 ├── neighbors/       # Instance-based learning (KNN)
 ├── tree/            # Tree-based models (CART)
 ├── naive_bayes/     # Gaussian Naive Bayes classifier
-├── ensemble/        # Random Forest, AdaBoost, Gradient Boosting, Isolation Forest
+├── ensemble/        # Random Forest, Extra Trees, AdaBoost, Gradient Boosting, Isolation Forest
 ├── decomposition/   # PCA and LDA dimensionality reduction
 ├── neural_network/  # MLP (Multilayer Perceptron) classifier and regressor
 └── preprocessing/   # Feature scalers and categorical encoders
@@ -62,7 +63,8 @@ from ml_scratch.clustering import KMeans, DBSCAN, GaussianMixture, Agglomerative
 from ml_scratch.neighbors import KNNClassifier, KNNRegressor
 from ml_scratch.tree import DecisionTreeClassifier
 from ml_scratch.naive_bayes import GaussianNB
-from ml_scratch.ensemble import RandomForestClassifier, AdaBoostClassifier
+from ml_scratch.ensemble import RandomForestClassifier, ExtraTreesClassifier
+from ml_scratch.ensemble import AdaBoostClassifier
 from ml_scratch.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
 from ml_scratch.ensemble import IsolationForest
 from ml_scratch.decomposition import PCA, LinearDiscriminantAnalysis
@@ -307,6 +309,53 @@ print(f"Accuracy: {accuracy(y_test, rf.predict(X_test)):.4f}")
 # Soft vote probabilities (averaged across trees)
 proba = rf.predict_proba(X_test)    # shape (n_samples, n_classes)
 ```
+
+### Extra Trees
+
+Extremely Randomised Trees (Geurts et al., 2006) extends Random Forest by
+choosing split thresholds *uniformly at random* from each feature's observed
+range instead of searching for the optimal Gini split.  The extra randomness
+makes each tree construction faster and the ensemble more diverse, typically
+matching or exceeding Random Forest test accuracy while being cheaper to train.
+
+Key differences from `RandomForestClassifier`:
+
+| Property | Random Forest | Extra Trees |
+|---|---|---|
+| Threshold selection | optimal (best Gini) | random (uniform in range) |
+| `bootstrap` default | `True` | `False` |
+| `n_features` default | `sqrt(p)` | all features |
+
+```python
+from ml_scratch.ensemble import ExtraTreesClassifier
+
+# Basic usage — mirrors the Random Forest API
+et = ExtraTreesClassifier(n_estimators=100, random_state=42)
+et.fit(X_train, y_train)
+print(f"Accuracy: {accuracy(y_test, et.predict(X_test)):.4f}")
+
+# Per-class probability estimates (soft vote)
+proba = et.predict_proba(X_test)   # shape (n_samples, n_classes)
+
+# Restrict feature candidates per split (can help on high-dimensional data)
+et_sub = ExtraTreesClassifier(n_estimators=100, n_features=5, random_state=0)
+et_sub.fit(X_train, y_train)
+
+# Enable bootstrap sampling (closer to a Random Forest in training variance)
+et_boot = ExtraTreesClassifier(n_estimators=100, bootstrap=True, random_state=0)
+et_boot.fit(X_train, y_train)
+
+# Control tree complexity
+et_shallow = ExtraTreesClassifier(
+    n_estimators=100, max_depth=5, min_samples_leaf=3, random_state=0
+)
+et_shallow.fit(X_train, y_train)
+```
+
+**When to prefer Extra Trees over Random Forest:**
+- Training speed is a priority (random thresholds avoid the O(n log n) split search).
+- The dataset is large and the optimal split threshold is unlikely to overfit.
+- Used as a fast baseline before tuning a more expensive ensemble.
 
 ### AdaBoost
 
