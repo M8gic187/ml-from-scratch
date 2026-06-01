@@ -256,12 +256,15 @@ def _binary_search_sigma(
         diff = H - target_H
         if abs(diff) < tol:
             break
+        # H is monotonically increasing in sigma_sq:
+        #   diff > 0 (H too high) → sigma too large → shrink upper bound
+        #   diff < 0 (H too low)  → sigma too small → raise lower bound
         if diff > 0:
-            lo = sigma_sq
-            sigma_sq = (sigma_sq + hi) / 2.0
-        else:
             hi = sigma_sq
             sigma_sq = (sigma_sq + lo) / 2.0
+        else:
+            lo = sigma_sq
+            sigma_sq = (sigma_sq + hi) / 2.0
 
     return max(sigma_sq, 1e-10)
 
