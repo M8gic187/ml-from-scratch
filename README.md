@@ -29,6 +29,7 @@ No scikit-learn, no PyTorch — just math and code.
 | Ensemble           | Isolation Forest       | ✅     |
 | Decomposition      | PCA                    | ✅     |
 | Decomposition      | LDA                    | ✅     |
+| Decomposition      | t-SNE                  | ✅     |
 | Neural Network     | MLP Classifier         | ✅     |
 | Neural Network     | MLP Regressor          | ✅     |
 | Preprocessing      | StandardScaler         | ✅     |
@@ -67,7 +68,7 @@ from ml_scratch.ensemble import RandomForestClassifier, ExtraTreesClassifier
 from ml_scratch.ensemble import AdaBoostClassifier
 from ml_scratch.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
 from ml_scratch.ensemble import IsolationForest
-from ml_scratch.decomposition import PCA, LinearDiscriminantAnalysis
+from ml_scratch.decomposition import PCA, LinearDiscriminantAnalysis, TSNE
 from ml_scratch.neural_network import MLPClassifier, MLPRegressor
 from ml_scratch.preprocessing import (
     StandardScaler, MinMaxScaler, LabelEncoder, OneHotEncoder,
@@ -470,6 +471,59 @@ lda_prior.fit(X_train, y_train)
 lda_svd = LinearDiscriminantAnalysis(n_components=2, solver='svd')
 lda_svd.fit(X_train, y_train)
 ```
+
+### t-SNE
+
+t-SNE (van der Maaten & Hinton, 2008) maps high-dimensional data to a
+low-dimensional (typically 2-D) embedding that preserves local neighbourhood
+structure.  Pairwise similarities in high-D space are modelled with Gaussian
+kernels calibrated per-point to achieve a target *perplexity* (effective number
+of neighbours).  The low-D affinities use a Student-t kernel, whose heavier
+tail relieves the crowding problem.  Optimisation minimises KL(P ∥ Q) via
+momentum gradient descent with adaptive per-component gains.
+
+```python
+from ml_scratch.decomposition import TSNE
+
+# --- Basic 2-D visualisation ---
+tsne = TSNE(n_components=2, perplexity=30, n_iterations=1000, random_state=42)
+Y = tsne.fit_transform(X)           # shape (n_samples, 2)
+
+print(f"KL divergence : {tsne.kl_divergence_:.4f}")
+print(f"Iterations    : {tsne.n_iter_}")
+
+# --- 3-D embedding ---
+tsne_3d = TSNE(n_components=3, perplexity=20, n_iterations=800, random_state=0)
+Y_3d = tsne_3d.fit_transform(X)    # shape (n_samples, 3)
+
+# --- Tune perplexity (typical range 5 – 50) ---
+# Low perplexity → captures very local structure, may fragment clusters
+tsne_local = TSNE(perplexity=5, n_iterations=800, random_state=0)
+
+# High perplexity → more global view, smoother layout
+tsne_global = TSNE(perplexity=50, n_iterations=800, random_state=0)
+
+# --- Auto learning rate (scales with n_samples, recommended for large data) ---
+tsne_auto = TSNE(perplexity=30, learning_rate="auto", n_iterations=1000, random_state=0)
+Y_auto = tsne_auto.fit_transform(X)
+
+# --- PCA pre-whitening pipeline (standard practice for high-D data) ---
+from ml_scratch.decomposition import PCA
+
+pca = PCA(n_components=50)
+X_pca = pca.fit_transform(X)           # reduce to 50-D first
+Y = TSNE(perplexity=30, random_state=0).fit_transform(X_pca)
+```
+
+**When to use t-SNE:**
+- Exploratory data visualisation of high-dimensional datasets.
+- Inspecting cluster quality before applying a clustering algorithm.
+- Understanding the manifold structure of embeddings (e.g. neural-network features).
+
+**Practical tips:**
+- Always run with at least 500–1000 iterations for stable layouts.
+- Pre-reduce to ~50 PCA components before t-SNE when `n_features > 100`.
+- Different random seeds produce topologically similar but geometrically rotated layouts — distances between clusters are not globally meaningful.
 
 ### MLP Neural Network
 
