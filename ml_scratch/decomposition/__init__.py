@@ -2,5 +2,6 @@
 
 from .lda import LinearDiscriminantAnalysis
 from .pca import PCA
+from .tsne import TSNE
 
-__all__ = ["LinearDiscriminantAnalysis", "PCA"]
+__all__ = ["LinearDiscriminantAnalysis", "PCA", "TSNE"]
