@@ -5,6 +5,7 @@ from .extra_trees import ExtraTreesClassifier
 from .gradient_boosting import GradientBoostingClassifier, GradientBoostingRegressor
 from .isolation_forest import IsolationForest
 from .random_forest import RandomForestClassifier
+from .voting import VotingClassifier
 
 __all__ = [
     "AdaBoostClassifier",
@@ -13,4 +14,5 @@ __all__ = [
     "GradientBoostingRegressor",
     "IsolationForest",
     "RandomForestClassifier",
+    "VotingClassifier",
 ]
