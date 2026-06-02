@@ -27,6 +27,7 @@ No scikit-learn, no PyTorch — just math and code.
 | Ensemble           | AdaBoost               | ✅     |
 | Ensemble           | Gradient Boosting      | ✅     |
 | Ensemble           | Isolation Forest       | ✅     |
+| Ensemble           | Voting Classifier      | ✅     |
 | Decomposition      | PCA                    | ✅     |
 | Decomposition      | LDA                    | ✅     |
 | Decomposition      | t-SNE                  | ✅     |
@@ -48,7 +49,7 @@ ml_scratch/
 ├── neighbors/       # Instance-based learning (KNN)
 ├── tree/            # Tree-based models (CART)
 ├── naive_bayes/     # Gaussian Naive Bayes classifier
-├── ensemble/        # Random Forest, Extra Trees, AdaBoost, Gradient Boosting, Isolation Forest
+├── ensemble/        # Random Forest, Extra Trees, AdaBoost, Gradient Boosting, Isolation Forest, Voting
 ├── decomposition/   # PCA and LDA dimensionality reduction
 ├── neural_network/  # MLP (Multilayer Perceptron) classifier and regressor
 └── preprocessing/   # Feature scalers and categorical encoders
@@ -67,7 +68,7 @@ from ml_scratch.naive_bayes import GaussianNB
 from ml_scratch.ensemble import RandomForestClassifier, ExtraTreesClassifier
 from ml_scratch.ensemble import AdaBoostClassifier
 from ml_scratch.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
-from ml_scratch.ensemble import IsolationForest
+from ml_scratch.ensemble import IsolationForest, VotingClassifier
 from ml_scratch.decomposition import PCA, LinearDiscriminantAnalysis, TSNE
 from ml_scratch.neural_network import MLPClassifier, MLPRegressor
 from ml_scratch.preprocessing import (
@@ -419,6 +420,66 @@ decisions = iso.decision_function(X_test)
 # Rank the 10 most anomalous samples
 top_outliers = X_test[np.argsort(scores)[:10]]
 ```
+
+### Voting Classifier
+
+`VotingClassifier` combines any number of heterogeneous base estimators via
+majority vote (hard) or probability averaging (soft).  It is especially useful
+as a final layer after tuning several independent models: combining diverse
+learners typically reduces variance while preserving each model's strengths.
+
+| Mode | Aggregation | Requires `predict_proba` |
+|------|-------------|--------------------------|
+| `'hard'` | strict (weighted) majority vote | no |
+| `'soft'` | (weighted) average of posterior probabilities | yes |
+
+```python
+from ml_scratch.ensemble import VotingClassifier, RandomForestClassifier, GradientBoostingClassifier
+from ml_scratch.tree import DecisionTreeClassifier
+from ml_scratch.neighbors import KNNClassifier
+
+# Hard voting — combine any estimators
+hard_clf = VotingClassifier(
+    estimators=[
+        ("dt",  DecisionTreeClassifier(max_depth=4, random_state=0)),
+        ("knn", KNNClassifier(k=7)),
+        ("rf",  RandomForestClassifier(n_estimators=50, random_state=0)),
+    ],
+    voting="hard",
+)
+hard_clf.fit(X_train, y_train)
+print(f"Hard voting accuracy: {accuracy(y_test, hard_clf.predict(X_test)):.4f}")
+
+# Soft voting — average class probabilities (estimators must expose predict_proba)
+soft_clf = VotingClassifier(
+    estimators=[
+        ("dt", DecisionTreeClassifier(max_depth=4, random_state=0)),
+        ("rf", RandomForestClassifier(n_estimators=50, random_state=0)),
+        ("gb", GradientBoostingClassifier(n_estimators=50, random_state=0)),
+    ],
+    voting="soft",
+)
+soft_clf.fit(X_train, y_train)
+proba = soft_clf.predict_proba(X_test)   # shape (n_samples, n_classes)
+print(f"Soft voting accuracy: {accuracy(y_test, soft_clf.predict(X_test)):.4f}")
+
+# Weighted voting — trust some estimators more than others
+weighted = VotingClassifier(
+    estimators=[
+        ("dt", DecisionTreeClassifier(max_depth=3, random_state=0)),
+        ("rf", RandomForestClassifier(n_estimators=100, random_state=0)),
+    ],
+    voting="hard",
+    weights=[1, 3],   # RandomForest gets 3× the vote weight
+)
+weighted.fit(X_train, y_train)
+```
+
+**When to use VotingClassifier:**
+- Combining models with complementary strengths (e.g. a tree, a KNN, and a linear model).
+- As a lightweight alternative to stacking when a meta-learner is too expensive.
+- Use `voting='soft'` when the base estimators are well-calibrated — averaged probabilities
+  carry more signal than hard votes and usually outperform `voting='hard'`.
 
 ### PCA
 
