@@ -31,6 +31,7 @@ No scikit-learn, no PyTorch — just math and code.
 | Decomposition      | PCA                    | ✅     |
 | Decomposition      | LDA                    | ✅     |
 | Decomposition      | t-SNE                  | ✅     |
+| Decomposition      | FastICA                | ✅     |
 | Neural Network     | MLP Classifier         | ✅     |
 | Neural Network     | MLP Regressor          | ✅     |
 | Preprocessing      | StandardScaler         | ✅     |
@@ -50,7 +51,7 @@ ml_scratch/
 ├── tree/            # Tree-based models (CART)
 ├── naive_bayes/     # Gaussian Naive Bayes classifier
 ├── ensemble/        # Random Forest, Extra Trees, AdaBoost, Gradient Boosting, Isolation Forest, Voting
-├── decomposition/   # PCA and LDA dimensionality reduction
+├── decomposition/   # PCA, LDA, t-SNE, FastICA dimensionality reduction
 ├── neural_network/  # MLP (Multilayer Perceptron) classifier and regressor
 └── preprocessing/   # Feature scalers and categorical encoders
 ```
@@ -69,7 +70,7 @@ from ml_scratch.ensemble import RandomForestClassifier, ExtraTreesClassifier
 from ml_scratch.ensemble import AdaBoostClassifier
 from ml_scratch.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
 from ml_scratch.ensemble import IsolationForest, VotingClassifier
-from ml_scratch.decomposition import PCA, LinearDiscriminantAnalysis, TSNE
+from ml_scratch.decomposition import PCA, LinearDiscriminantAnalysis, TSNE, FastICA
 from ml_scratch.neural_network import MLPClassifier, MLPRegressor
 from ml_scratch.preprocessing import (
     StandardScaler, MinMaxScaler, LabelEncoder, OneHotEncoder,
@@ -585,6 +586,59 @@ Y = TSNE(perplexity=30, random_state=0).fit_transform(X_pca)
 - Always run with at least 500–1000 iterations for stable layouts.
 - Pre-reduce to ~50 PCA components before t-SNE when `n_features > 100`.
 - Different random seeds produce topologically similar but geometrically rotated layouts — distances between clusters are not globally meaningful.
+
+### FastICA
+
+FastICA (Hyvärinen & Oja, 2000) recovers statistically independent source signals from a
+set of mixed observations — the classic *blind source separation* problem.  Unlike PCA
+(which finds uncorrelated directions that maximise variance), ICA maximises
+non-Gaussianity of the projections as a proxy for independence.
+
+```python
+from ml_scratch.decomposition import FastICA
+
+# --- Blind source separation -------------------------------------------------
+# Separate three mixed audio-like signals into their independent sources
+ica = FastICA(n_components=3, random_state=0)
+S_recovered = ica.fit_transform(X_mixed)   # shape (n_samples, 3)
+
+# --- Feature extraction / dimensionality reduction ---------------------------
+# Extract 10 independent features from a 50-dimensional dataset
+ica = FastICA(n_components=10, random_state=0)
+X_ica = ica.fit_transform(X)               # shape (n_samples, 10)
+
+# Reconstruct approximate original signals
+X_approx = ica.inverse_transform(X_ica)   # shape (n_samples, 50)
+
+# --- Algorithm variants ------------------------------------------------------
+# Deflation: extract components one at a time (more stable, slower)
+ica_def = FastICA(n_components=5, algorithm="deflation", random_state=0)
+S = ica_def.fit_transform(X)
+
+# Different contrast functions
+ica_exp  = FastICA(fun="exp",  random_state=0)   # super-Gaussian sources
+ica_cube = FastICA(fun="cube", random_state=0)   # fast, less robust
+S = ica_exp.fit_transform(X)
+
+# --- PCA pre-whitening pipeline ----------------------------------------------
+from ml_scratch.decomposition import PCA
+# First reduce noise with PCA, then extract independent components
+X_pca  = PCA(n_components=20).fit_transform(X)
+S_ica  = FastICA(n_components=10, random_state=0).fit_transform(X_pca)
+```
+
+| Parameter   | Default      | Options                        | Effect                                    |
+|-------------|--------------|--------------------------------|-------------------------------------------|
+| `algorithm` | `'parallel'` | `'parallel'`, `'deflation'`    | Deflation is more robust on ill-conditioned data |
+| `fun`       | `'logcosh'`  | `'logcosh'`, `'exp'`, `'cube'` | `'logcosh'` is safest; `'cube'` is fastest |
+| `whiten`    | `True`       | `True`, `False`                | PCA whitening before extraction (recommended) |
+| `max_iter`  | `200`        | int                            | Increase to 500+ for hard mixing problems |
+
+**When to use FastICA:**
+- Recovering independent audio, image, or sensor sources from mixed measurements.
+- Feature extraction when sources are non-Gaussian (finance, biomedical signals).
+- Post-processing PCA components to remove residual dependencies.
+- `fun='logcosh'` (default) is the most robust; switch to `'exp'` for sparse/sparse-spike sources.
 
 ### MLP Neural Network
 
