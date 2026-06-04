@@ -32,6 +32,7 @@ No scikit-learn, no PyTorch — just math and code.
 | Decomposition      | LDA                    | ✅     |
 | Decomposition      | t-SNE                  | ✅     |
 | Decomposition      | FastICA                | ✅     |
+| Decomposition      | NMF                    | ✅     |
 | Neural Network     | MLP Classifier         | ✅     |
 | Neural Network     | MLP Regressor          | ✅     |
 | Preprocessing      | StandardScaler         | ✅     |
@@ -51,7 +52,7 @@ ml_scratch/
 ├── tree/            # Tree-based models (CART)
 ├── naive_bayes/     # Gaussian Naive Bayes classifier
 ├── ensemble/        # Random Forest, Extra Trees, AdaBoost, Gradient Boosting, Isolation Forest, Voting
-├── decomposition/   # PCA, LDA, t-SNE, FastICA dimensionality reduction
+├── decomposition/   # PCA, LDA, t-SNE, FastICA, NMF dimensionality reduction and factorisation
 ├── neural_network/  # MLP (Multilayer Perceptron) classifier and regressor
 └── preprocessing/   # Feature scalers and categorical encoders
 ```
@@ -70,7 +71,7 @@ from ml_scratch.ensemble import RandomForestClassifier, ExtraTreesClassifier
 from ml_scratch.ensemble import AdaBoostClassifier
 from ml_scratch.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
 from ml_scratch.ensemble import IsolationForest, VotingClassifier
-from ml_scratch.decomposition import PCA, LinearDiscriminantAnalysis, TSNE, FastICA
+from ml_scratch.decomposition import PCA, LinearDiscriminantAnalysis, TSNE, FastICA, NMF
 from ml_scratch.neural_network import MLPClassifier, MLPRegressor
 from ml_scratch.preprocessing import (
     StandardScaler, MinMaxScaler, LabelEncoder, OneHotEncoder,
@@ -639,6 +640,82 @@ S_ica  = FastICA(n_components=10, random_state=0).fit_transform(X_pca)
 - Feature extraction when sources are non-Gaussian (finance, biomedical signals).
 - Post-processing PCA components to remove residual dependencies.
 - `fun='logcosh'` (default) is the most robust; switch to `'exp'` for sparse/sparse-spike sources.
+
+### NMF
+
+NMF (Non-negative Matrix Factorization, Lee & Seung 2001) decomposes a non-negative
+matrix `V` (shape `n_samples × n_features`) into two non-negative factors `W` and `H`
+such that `V ≈ W @ H`.  Because all entries remain non-negative, the learned components
+are additive parts — making them inherently interpretable (topics in text, spectral
+components in audio, localised features in images).
+
+Two solvers are available:
+
+| Solver | Algorithm | Beta-loss support | Typical use |
+|--------|-----------|-------------------|-------------|
+| `'mu'` | Multiplicative Update (Lee & Seung) | `'frobenius'`, `'kl'` | General; use `'kl'` for count data |
+| `'als'`| Alternating Least Squares | `'frobenius'` only | Faster convergence on dense data |
+
+```python
+from ml_scratch.decomposition import NMF
+
+# --- Basic factorisation -------------------------------------------------------
+nmf = NMF(n_components=5, random_state=0)
+W = nmf.fit_transform(X)          # (n_samples, 5) — activation matrix
+H = nmf.components_               # (5, n_features) — basis / dictionary
+
+print(f"Reconstruction error : {nmf.reconstruction_err_:.4f}")
+print(f"Converged in         : {nmf.n_iter_} iterations")
+
+# Reconstruct the original matrix
+X_approx = nmf.inverse_transform(W)   # shape (n_samples, n_features), all ≥ 0
+
+# Encode new (held-out) data with the fitted H
+W_new = nmf.transform(X_test)         # (n_test, 5)
+
+# --- Solver comparison ---------------------------------------------------------
+nmf_mu  = NMF(n_components=5, solver="mu",  random_state=0).fit(X)
+nmf_als = NMF(n_components=5, solver="als", random_state=0).fit(X)
+print(f"MU  err={nmf_mu.reconstruction_err_:.3f}  iters={nmf_mu.n_iter_}")
+print(f"ALS err={nmf_als.reconstruction_err_:.3f}  iters={nmf_als.n_iter_}")
+
+# --- KL-divergence loss (good for count / histogram data) ---------------------
+# 'kl' beta-loss is only available with solver='mu'
+nmf_kl = NMF(n_components=5, solver="mu", beta_loss="kl", random_state=0)
+nmf_kl.fit(X_counts)               # X_counts should be non-negative integers
+
+# --- Regularisation -----------------------------------------------------------
+# L1 on H → sparse dictionary components (topic-like sparsity)
+nmf_l1 = NMF(n_components=5, l1_reg_H=0.05, random_state=0)
+W_l1 = nmf_l1.fit_transform(X)
+print(f"H sparsity: {(nmf_l1.components_ < 1e-4).mean():.2%}")
+
+# L2 on W → smoother activations
+nmf_l2 = NMF(n_components=5, l2_reg_W=0.1, random_state=0)
+W_l2 = nmf_l2.fit_transform(X)
+
+# --- Topic modelling analogy ---------------------------------------------------
+# Each row of H is a latent topic; top features per row are the topic keywords.
+top_per_topic = [
+    vocab[i] for i in nmf.components_[topic_id].argsort()[::-1][:5]
+    for topic_id in range(nmf.n_components_)
+]
+```
+
+| Parameter    | Default       | Options                       | Effect                                              |
+|--------------|---------------|-------------------------------|-----------------------------------------------------|
+| `solver`     | `'mu'`        | `'mu'`, `'als'`               | ALS converges faster; MU supports KL loss           |
+| `beta_loss`  | `'frobenius'` | `'frobenius'`, `'kl'`         | KL suits sparse count data (requires `solver='mu'`) |
+| `l1_reg_H`   | `0.0`         | float ≥ 0                     | Encourages sparse columns in H                      |
+| `l2_reg_W`   | `0.0`         | float ≥ 0                     | Regularises activation magnitudes                   |
+| `max_iter`   | `200`         | int                           | Increase for difficult / high-rank factorisations   |
+
+**When to use NMF:**
+- Text / topic modelling: rows of `W` are document–topic mixtures; columns of `H` are topic–word distributions.
+- Spectral analysis: decompose spectrograms into additive spectral components.
+- Image parts: learn localised, additive filters (faces → eyes + nose + mouth).
+- Collaborative filtering: users and items share a latent non-negative factor space.
+- Use `beta_loss='kl'` for count matrices (word frequencies, pixel histograms); `'frobenius'` otherwise.
 
 ### MLP Neural Network
 
