@@ -22,6 +22,8 @@ No scikit-learn, no PyTorch — just math and code.
 | Neighbors          | K-Nearest Neighbors    | ✅     |
 | Tree               | Decision Tree (CART)   | ✅     |
 | Naive Bayes        | Gaussian Naive Bayes   | ✅     |
+| Naive Bayes        | Multinomial Naive Bayes| ✅     |
+| Naive Bayes        | Bernoulli Naive Bayes  | ✅     |
 | Ensemble           | Random Forest          | ✅     |
 | Ensemble           | Extra Trees            | ✅     |
 | Ensemble           | AdaBoost               | ✅     |
@@ -50,7 +52,7 @@ ml_scratch/
 ├── clustering/      # Unsupervised learning
 ├── neighbors/       # Instance-based learning (KNN)
 ├── tree/            # Tree-based models (CART)
-├── naive_bayes/     # Gaussian Naive Bayes classifier
+├── naive_bayes/     # Gaussian, Multinomial, and Bernoulli Naive Bayes classifiers
 ├── ensemble/        # Random Forest, Extra Trees, AdaBoost, Gradient Boosting, Isolation Forest, Voting
 ├── decomposition/   # PCA, LDA, t-SNE, FastICA, NMF dimensionality reduction and factorisation
 ├── neural_network/  # MLP (Multilayer Perceptron) classifier and regressor
@@ -66,7 +68,7 @@ from ml_scratch.svm import LinearSVC, SVC
 from ml_scratch.clustering import KMeans, DBSCAN, GaussianMixture, AgglomerativeClustering, SpectralClustering
 from ml_scratch.neighbors import KNNClassifier, KNNRegressor
 from ml_scratch.tree import DecisionTreeClassifier
-from ml_scratch.naive_bayes import GaussianNB
+from ml_scratch.naive_bayes import GaussianNB, MultinomialNB, BernoulliNB
 from ml_scratch.ensemble import RandomForestClassifier, ExtraTreesClassifier
 from ml_scratch.ensemble import AdaBoostClassifier
 from ml_scratch.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
@@ -301,6 +303,87 @@ print(f"Accuracy: {accuracy(y_test, clf.predict(X_test)):.4f}")
 # Retrieve normalised class posteriors
 proba = clf.predict_proba(X_test)   # shape (n_samples, n_classes)
 ```
+
+### Multinomial Naive Bayes
+
+MultinomialNB models each feature as a discrete multinomial random variable.
+It is the standard choice for bag-of-words text classification where features
+are word counts or term frequencies.
+
+| Parameter | Default | Effect |
+|-----------|---------|--------|
+| `alpha`   | `1.0`   | Additive (Laplace/Lidstone) smoothing.  Set to `0` to disable (only safe when every feature appears in every class during training). |
+
+```python
+from ml_scratch.naive_bayes import MultinomialNB
+
+# Bag-of-words text classification
+clf = MultinomialNB(alpha=1.0)   # Laplace smoothing
+clf.fit(X_counts_train, y_train) # X must be non-negative (word counts)
+print(f"Accuracy: {accuracy(y_test, clf.predict(X_counts_test)):.4f}")
+
+# Posterior probabilities and log-posteriors
+proba    = clf.predict_proba(X_counts_test)     # shape (n_samples, n_classes)
+log_prob = clf.predict_log_proba(X_counts_test) # un-normalised log-posteriors
+
+# Inspect learned feature–class log-probabilities
+# feature_log_prob_[i, j] = log P(feature j | class i)
+print(clf.feature_log_prob_.shape)   # (n_classes, n_features)
+
+# Top-3 vocabulary terms per class (rows sum to log 1 = 0 per class)
+for i, cls in enumerate(clf.classes_):
+    top3 = clf.feature_log_prob_[i].argsort()[-3:][::-1]
+    print(f"Class {cls}: top features {top3.tolist()}")
+
+# Lidstone smoothing (fractional alpha for milder regularisation)
+clf_lid = MultinomialNB(alpha=0.5)
+clf_lid.fit(X_counts_train, y_train)
+```
+
+### Bernoulli Naive Bayes
+
+BernoulliNB models each feature as a binary Bernoulli indicator.  Unlike
+MultinomialNB, it explicitly penalises the *absence* of a feature — making it
+particularly effective for short or sparse binary documents such as presence/
+absence keyword vectors.
+
+| Parameter   | Default | Effect |
+|-------------|---------|--------|
+| `alpha`     | `1.0`   | Additive smoothing applied to presence counts. |
+| `binarize`  | `0.0`   | Threshold for automatic binarization.  Pass `None` to skip (inputs already binary). |
+
+```python
+from ml_scratch.naive_bayes import BernoulliNB
+
+# Binary keyword presence — inputs are automatically binarized
+clf = BernoulliNB(alpha=1.0, binarize=0.0)
+clf.fit(X_binary_train, y_train)
+print(f"Accuracy: {accuracy(y_test, clf.predict(X_binary_test)):.4f}")
+
+# Pre-binarized inputs (skip internal thresholding)
+clf_pre = BernoulliNB(alpha=1.0, binarize=None)
+clf_pre.fit(X_01_train, y_train)
+
+# Custom binarization threshold (e.g. tf-idf values > 0.3 treated as present)
+clf_thr = BernoulliNB(binarize=0.3)
+clf_thr.fit(X_tfidf_train, y_train)
+
+# Posterior probabilities and log-posteriors
+proba    = clf.predict_proba(X_binary_test)     # shape (n_samples, n_classes)
+log_prob = clf.predict_log_proba(X_binary_test) # un-normalised
+
+# Inspect learned feature-presence log-probabilities
+# feature_log_prob_[i, j] = log P(x_j = 1 | class i)
+print(clf.feature_log_prob_.shape)   # (n_classes, n_features)
+```
+
+**Choosing the right Naive Bayes variant:**
+
+| Variant       | Best for                            | Feature type            |
+|---------------|-------------------------------------|-------------------------|
+| `GaussianNB`  | Continuous, normally distributed data | real-valued            |
+| `MultinomialNB`| Word counts, TF, histograms        | non-negative integers   |
+| `BernoulliNB` | Keyword presence/absence, binary flags | binary (0 or 1)       |
 
 ### Random Forest
 
