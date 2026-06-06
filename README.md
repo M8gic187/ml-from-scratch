@@ -35,6 +35,7 @@ No scikit-learn, no PyTorch — just math and code.
 | Decomposition      | t-SNE                  | ✅     |
 | Decomposition      | FastICA                | ✅     |
 | Decomposition      | NMF                    | ✅     |
+| Gaussian Process   | GP Regressor (GPR)     | ✅     |
 | Neural Network     | MLP Classifier         | ✅     |
 | Neural Network     | MLP Regressor          | ✅     |
 | Preprocessing      | StandardScaler         | ✅     |
@@ -55,6 +56,7 @@ ml_scratch/
 ├── naive_bayes/     # Gaussian, Multinomial, and Bernoulli Naive Bayes classifiers
 ├── ensemble/        # Random Forest, Extra Trees, AdaBoost, Gradient Boosting, Isolation Forest, Voting
 ├── decomposition/   # PCA, LDA, t-SNE, FastICA, NMF dimensionality reduction and factorisation
+├── gaussian_process/ # Gaussian Process Regression with multiple kernel functions
 ├── neural_network/  # MLP (Multilayer Perceptron) classifier and regressor
 └── preprocessing/   # Feature scalers and categorical encoders
 ```
@@ -74,6 +76,7 @@ from ml_scratch.ensemble import AdaBoostClassifier
 from ml_scratch.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
 from ml_scratch.ensemble import IsolationForest, VotingClassifier
 from ml_scratch.decomposition import PCA, LinearDiscriminantAnalysis, TSNE, FastICA, NMF
+from ml_scratch.gaussian_process import GaussianProcessRegressor
 from ml_scratch.neural_network import MLPClassifier, MLPRegressor
 from ml_scratch.preprocessing import (
     StandardScaler, MinMaxScaler, LabelEncoder, OneHotEncoder,
@@ -799,6 +802,91 @@ top_per_topic = [
 - Image parts: learn localised, additive filters (faces → eyes + nose + mouth).
 - Collaborative filtering: users and items share a latent non-negative factor space.
 - Use `beta_loss='kl'` for count matrices (word frequencies, pixel histograms); `'frobenius'` otherwise.
+
+### Gaussian Process Regression (GPR)
+
+A Gaussian Process is a non-parametric Bayesian model that places a prior directly over functions.
+After conditioning on training data the posterior is also a Gaussian Process, giving calibrated
+uncertainty estimates alongside point predictions — every prediction comes with a confidence
+interval for free.
+
+The implementation uses exact Cholesky-based inference (O(n³)) and supports four built-in kernels:
+
+| Kernel | Class / string | Best for |
+|--------|---------------|----------|
+| RBF (squared-exponential) | `"rbf"` | Smooth, infinitely differentiable functions |
+| Matérn 5/2 | `"matern52"` | Slightly rougher functions; often more robust |
+| Periodic (exp-sin²) | `"periodic"` | Seasonal / repeating patterns |
+| Linear (dot-product) | `"linear"` | Linear trends with heteroscedastic noise |
+| Any callable | `my_fn(X1, X2) → K` | Custom or composite kernels |
+
+```python
+import numpy as np
+from ml_scratch.gaussian_process import GaussianProcessRegressor
+
+rng = np.random.default_rng(0)
+X_train = rng.uniform(-3, 3, (40, 1))
+y_train = np.sin(X_train.ravel()) + rng.normal(0, 0.1, 40)
+
+# --- Fit with RBF kernel -------------------------------------------------------
+gpr = GaussianProcessRegressor(kernel="rbf", length_scale=1.0, noise_var=0.01)
+gpr.fit(X_train, y_train)
+
+# Posterior mean only
+X_test = np.linspace(-3, 3, 100).reshape(-1, 1)
+mean = gpr.predict(X_test)
+
+# Posterior mean + per-point standard deviation (for confidence bands)
+mean, std = gpr.predict(X_test, return_std=True)
+lower, upper = mean - 2 * std, mean + 2 * std   # approx 95 % credible band
+
+# Posterior mean + full covariance matrix
+mean, cov = gpr.predict(X_test, return_cov=True)
+
+# --- Posterior sampling --------------------------------------------------------
+# Draw 5 function samples from the posterior
+samples = gpr.sample_y(X_test, n_samples=5, random_state=42)  # shape (n_test, 5)
+
+# --- Model selection via log marginal likelihood --------------------------------
+print(f"LML (RBF)     : {gpr.log_marginal_likelihood():.2f}")
+
+gpr_m52 = GaussianProcessRegressor(kernel="matern52", noise_var=0.01).fit(X_train, y_train)
+print(f"LML (Matern52): {gpr_m52.log_marginal_likelihood():.2f}")
+
+# Higher LML → better fit to the data under that kernel's prior
+
+# --- Periodic kernel for seasonal data -----------------------------------------
+gpr_per = GaussianProcessRegressor(kernel="periodic", period=2 * np.pi, noise_var=0.01)
+gpr_per.fit(X_train, y_train)
+
+# --- Custom kernel (composite: RBF * Matern52) ---------------------------------
+from ml_scratch.gaussian_process.kernels import rbf_kernel, matern52_kernel
+
+def composite_kernel(X1, X2):
+    return rbf_kernel(X1, X2, length_scale=1.5) * matern52_kernel(X1, X2, length_scale=0.8)
+
+gpr_custom = GaussianProcessRegressor(kernel=composite_kernel, noise_var=0.02)
+gpr_custom.fit(X_train, y_train)
+
+# --- R² score ------------------------------------------------------------------
+r2 = gpr.score(X_test, np.sin(X_test.ravel()))
+print(f"R²: {r2:.4f}")
+```
+
+| Parameter | Default | Effect |
+|-----------|---------|--------|
+| `kernel` | `"rbf"` | Kernel function: `"rbf"`, `"matern52"`, `"periodic"`, `"linear"`, or callable |
+| `length_scale` | `1.0` | Width/smoothness of the kernel; larger → longer-range correlations |
+| `signal_var` | `1.0` | Output amplitude (variance of the prior process) |
+| `noise_var` | `0.001` | Observation noise σ²_n; regularises the Cholesky solve |
+| `period` | `1.0` | Periodicity — only used with `kernel="periodic"` |
+| `bias` | `0.0` | Intercept offset — only used with `kernel="linear"` |
+
+**When to use GPR:**
+- You need uncertainty estimates alongside predictions (e.g. active learning, Bayesian optimisation).
+- The dataset is small to medium (≤ 5,000 samples) and you want a non-parametric model.
+- You have prior knowledge about the function's smoothness or periodicity to encode via the kernel.
+- Use `return_std=True` to plot credible bands; use `log_marginal_likelihood()` to compare kernels.
 
 ### MLP Neural Network
 
